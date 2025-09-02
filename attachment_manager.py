@@ -3,16 +3,54 @@ import re
 import uuid
 import argparse
 
-attachment_pattern = r'!\[\[(.*?)\]\]'
+def fix_bad_attachments_in_file(markdown_file_path, dry_run=False):
+    """Fixes attachments that are in a malformed format like ![[]](attachments/file.png)."""
+
+    # This pattern finds the malformed link and captures the filename.
+    bad_attachment_pattern = r'!\[\[\]\]\(attachments/([^)]*)\)'
+    replacements = []
+
+    try:
+        with open(markdown_file_path, 'r+', encoding='utf-8') as f:
+            content = f.read()
+
+            for match in re.finditer(bad_attachment_pattern, content):
+                original_link = match.group(0)
+                file_name = match.group(1)
+                new_link = f'![[{file_name}]]'
+                replacements.append((original_link, new_link))
+
+            if replacements:
+                if dry_run:
+                    print(f'[DRY RUN] In {markdown_file_path}, would fix {len(replacements)} bad links:')
+                    for old, new in replacements:
+                        print(f'  - Replace "{old}"')
+                        print(f'    with    "{new}"')
+                else:
+                    # Apply all replacements to the content
+                    new_content = content
+                    for old, new in replacements:
+                        new_content = new_content.replace(old, new)
+
+                    f.seek(0)
+                    f.write(new_content)
+                    f.truncate()
+                    print(f'Fixed {len(replacements)} bad attachment links in {markdown_file_path}')
+
+    except Exception as e:
+        print(f'Error fixing bad attachments in {markdown_file_path}: {e}')
+
 
 def rename_attachments_in_file(markdown_file_path, attachments_dir, dry_run=False):
     """Renames attachments found in a single markdown file."""
+    attachment_pattern = r'!\[\[(.*?)\]\]'
     markdown_file_name = os.path.splitext(os.path.basename(markdown_file_path))[0]
 
     try:
         with open(markdown_file_path, 'r+', encoding='utf-8') as f:
             content = f.read()
             original_content = content
+            new_content = content
 
             attachments = re.findall(attachment_pattern, content)
 
@@ -22,9 +60,8 @@ def rename_attachments_in_file(markdown_file_path, attachments_dir, dry_run=Fals
 
                 if os.path.exists(old_attachment_path):
                     file_ext = os.path.splitext(attachment_name)[1]
-                    # In a dry run, we generate a placeholder UUID for consistent output
                     new_uuid = "DRY-RUN-UUID" if dry_run else uuid.uuid4()
-                    new_file_name = f"{markdown_file_name} - {new_uuid}{file_ext}"
+                    new_file_name = f'{markdown_file_name} - {new_uuid}{file_ext}'
                     new_attachment_path = os.path.join(attachments_dir, new_file_name)
 
                     if dry_run:
@@ -32,17 +69,16 @@ def rename_attachments_in_file(markdown_file_path, attachments_dir, dry_run=Fals
                     else:
                         os.rename(old_attachment_path, new_attachment_path)
 
-                    # Update the link in the markdown file content
-                    content = content.replace(f"![[{attachment_name}]]", f"![[{new_file_name}]]")
+                    new_content = new_content.replace(f'![[{attachment_name}]]', f'![[{new_file_name}]]')
                     changes_made = True
 
             if changes_made:
                 if dry_run:
                      print(f"[DRY RUN] Would update links in: {markdown_file_path}")
                 else:
-                    if content != original_content:
+                    if new_content != original_content:
                         f.seek(0)
-                        f.write(content)
+                        f.write(new_content)
                         f.truncate()
                         print(f"Updated attachments in {markdown_file_path}")
 
