@@ -7,7 +7,7 @@ def fix_bad_attachments_in_file(markdown_file_path, dry_run=False):
     """Fixes attachments that are in a malformed format like ![[]](attachments/file.png)."""
 
     # This pattern finds the malformed link and captures the filename.
-    bad_attachment_pattern = r'!\[\[\]\]\(attachments/([^)]*)\)'
+    bad_attachment_pattern = r'\[\]\(attachments\/(.*?)\)'
     replacements = []
 
     try:
@@ -43,7 +43,7 @@ def fix_bad_attachments_in_file(markdown_file_path, dry_run=False):
 
 def rename_attachments_in_file(markdown_file_path, attachments_dir, dry_run=False):
     """Renames attachments found in a single markdown file."""
-    attachment_pattern = r'!\[\[(.*?)\]\]'
+    attachment_pattern = r'!\[\[(?:attachments\/)?(.*?)\]\]'
     markdown_file_name = os.path.splitext(os.path.basename(markdown_file_path))[0]
 
     try:
@@ -52,11 +52,16 @@ def rename_attachments_in_file(markdown_file_path, attachments_dir, dry_run=Fals
             original_content = content
             new_content = content
 
-            attachments = re.findall(attachment_pattern, content)
-
             changes_made = False
-            for attachment_name in attachments:
+            for match in re.finditer(attachment_pattern, content):
+                attachment_name = match.group(1)
+                original_link = match.group(0)
+
                 old_attachment_path = os.path.join(attachments_dir, attachment_name)
+
+                # Don't update attachments that have already been updated.
+                if attachment_name.startswith(markdown_file_name):
+                    continue
 
                 if os.path.exists(old_attachment_path):
                     file_ext = os.path.splitext(attachment_name)[1]
@@ -69,7 +74,9 @@ def rename_attachments_in_file(markdown_file_path, attachments_dir, dry_run=Fals
                     else:
                         os.rename(old_attachment_path, new_attachment_path)
 
-                    new_content = new_content.replace(f'![[{attachment_name}]]', f'![[{new_file_name}]]')
+                    new_content = new_content.replace(original_link, f'![[{new_file_name}]]\n\n')
+                    # Also handle any properties.
+                    new_content = new_content.replace(attachment_name, new_file_name)
                     changes_made = True
 
             if changes_made:
@@ -81,6 +88,8 @@ def rename_attachments_in_file(markdown_file_path, attachments_dir, dry_run=Fals
                         f.write(new_content)
                         f.truncate()
                         print(f"Updated attachments in {markdown_file_path}")
+            else:
+                print(f"No changes made to {markdown_file_path}")
 
     except Exception as e:
         print(f"Error processing {markdown_file_path}: {e}")
@@ -107,6 +116,7 @@ def main():
     for filename in os.listdir(markdown_dir):
         if filename.endswith(".md"):
             markdown_file_path = os.path.join(markdown_dir, filename)
+            fix_bad_attachments_in_file(markdown_file_path, args.dry_run)
             rename_attachments_in_file(markdown_file_path, attachments_dir, args.dry_run)
 
 if __name__ == "__main__":
