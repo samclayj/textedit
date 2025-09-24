@@ -109,7 +109,6 @@ def rename_attachments_in_canvas_file(canvas_file_path, attachments_dir, dry_run
             changes_made = False
             for match in re.finditer(attachment_pattern, content):
                 attachment_name = match.group(1)
-                original_path = match.group(0)
 
                 old_attachment_path = os.path.join(attachments_dir, attachment_name)
 
@@ -128,8 +127,6 @@ def rename_attachments_in_canvas_file(canvas_file_path, attachments_dir, dry_run
                     else:
                         os.rename(old_attachment_path, new_attachment_path)
 
-                    new_content = new_content.replace(original_path, f'attachments/{new_file_name}')
-                    # Also handle any properties.
                     new_content = new_content.replace(attachment_name, new_file_name)
                     changes_made = True
 
