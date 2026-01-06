@@ -191,18 +191,19 @@ def main():
         print(f"Error: Attachments directory not found at {attachments_dir}")
         return
 
-    for filename in os.listdir(markdown_dir):
-        if filename.endswith(".md"):
-            markdown_file_path = os.path.join(markdown_dir, filename)
-            fix_bad_attachments_in_file(markdown_file_path, args.dry_run)
-            rename_attachments_in_file(
-                markdown_file_path, attachments_dir, args.dry_run
-            )
-        elif filename.endswith(".canvas"):
-            canvas_file_path = os.path.join(markdown_dir, filename)
-            rename_attachments_in_canvas_file(
-                canvas_file_path, attachments_dir, args.dry_run
-            )
+    for dirpath, _, filenames in os.walk(markdown_dir):
+        for filename in filenames:
+            if filename.endswith(".md"):
+                markdown_file_path = os.path.join(dirpath, filename)
+                fix_bad_attachments_in_file(markdown_file_path, args.dry_run)
+                rename_attachments_in_file(
+                    markdown_file_path, attachments_dir, args.dry_run
+                )
+            elif filename.endswith(".canvas"):
+                canvas_file_path = os.path.join(dirpath, filename)
+                rename_attachments_in_canvas_file(
+                    canvas_file_path, attachments_dir, args.dry_run
+                )
 
 
 if __name__ == "__main__":
